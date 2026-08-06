@@ -1,0 +1,32 @@
+apiVersion: secretrotator.io/v1alpha1
+kind: ManagedSecret
+metadata:
+  name: app-credentials-sync
+  namespace: secrets-dev
+spec:
+  secretRef:
+    - name: db-credentials
+      namespace: default
+      targetWorkloads:
+      - name: payment-api
+        kind: Deployment
+
+      - name: frontend-gitops
+        kind: Application
+        apiVersion: argoproj.io/v1alpha1
+
+      - name: postgres-db-instance
+        kind: PostgresInstance
+        apiVersion: database.aws.crossplane.io/v1alpha1
+        namespace: infrastructure
+    
+    - name: cicd-credentials
+      targetWorkloads:
+      - name: gitlab-ci-instance
+        kind: GitLabCI
+        apiVersion: ci.gitlab.com/v1
+        namespace: ci
+      - name: github-actions-instance
+        kind: GitHubActions
+        apiVersion: actions.github.com/v1
+        namespace: ci

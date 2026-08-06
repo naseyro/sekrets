@@ -1,0 +1,48 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: managedsecrets.secretrotator.io
+spec:
+  group: secretrotator.io
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                secretRefs:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                        targetWorkloads:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                kind:
+                                  type: string
+                                apiVersion:
+                                  type: string
+                                namespace:
+                                  type: string
+  names:
+    kind: ManagedSecret
+    plural: managedsecrets
+    singular: managedsecret
+  scope: Namespaced
