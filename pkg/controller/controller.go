@@ -175,6 +175,22 @@ func (c *Controller) proccessNextItem() bool {
 }
 
 func reconcile(key string) error {
+	// We get a key == "namespace/name" == "default/managed-secret-app"
+	// Separate the key into namespace and msName through strings.Split("/"")
+	// We need to retrieve the ManagedSecret object using the Informer .Get("msName")
+	// If we came up here, we have an update but we don't know which update happened
+	// is this a ManagedSecret update or a Secert update?
+
+	// In case of a secret update
+	// if it is a secret update, the data in that secret has changed then we need
+	// to calculate a new hash, so we call the hash function
+	// then we call the function createJSONPatch and send the hash value
+	// then we get the GVK from the resource (either Secret or ManagedSecret)
+	// then we get the GVR and create a dynamic client
+	// Dyanmic client should use that GVR and the JSONPatch to send the update to the
+	// corresponding target workload
+
+	// In case of a ManagedSecret update
 	return nil
 }
 
