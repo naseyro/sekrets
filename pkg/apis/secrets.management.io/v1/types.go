@@ -1,18 +1,18 @@
-package v1alpha1
+package v1
 
 import v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ManagedSecret struct {
+type SecretsManager struct {
 	v1.TypeMeta   `json:",inline"`
 	v1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec ManagedSecretSpec `json:"spec"`
+	Spec SecretsManagerSpec `json:"spec"`
 
 	// Status sub-resource is not supported yet.
 }
 
-type ManagedSecretSpec struct {
+type SecretsManagerSpec struct {
 	SecretRefs []SecretRef `json:"secretRefs"`
 }
 
@@ -23,16 +23,24 @@ type SecretRef struct {
 }
 
 type TargetWorkload struct {
-	Name       string `json:"name"`
-	Kind       string `json:"kind"`
-	APIVersion string `json:"apiVersion"`
-	Namespace  string `json:"namespace,omitempty"`
+	Name        string      `json:"name"`
+	Kind        string      `json:"kind"`
+	APIVersion  string      `json:"apiVersion"`
+	Namespace   string      `json:"namespace,omitempty"`
+	MountConfig MountConfig `json:"mountConfig"`
+}
+
+type MountConfig struct {
+	MountType string `json:"mountType"`
+	MountPath string `json:"mountPath,omitempty"`
+	EnvName   string `json:"envName,omitempty"`
+	SecretKey string `json:"secretKey,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ManagedSecretList struct {
+type SecretsManagerList struct {
 	v1.TypeMeta `json:",inline"`
 	v1.ListMeta `json:"metadata,omitempty"`
 
-	Items []ManagedSecret `json:"items"`
+	Items []SecretsManager `json:"items"`
 }

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	apiv1alpha1 "github.com/naseyro/ssc/pkg/apis/secretrotator/v1alpha1"
-	"github.com/naseyro/ssc/pkg/clientset/secretrotator/v1alpha1"
+	apiv1 "github.com/naseyro/ssc/pkg/apis/secrets.management.io/v1"
+	v1 "github.com/naseyro/ssc/pkg/clientset/secrets.management.io/v1"
 	"github.com/naseyro/ssc/pkg/informers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,13 +17,13 @@ import (
 )
 
 type Controller struct {
-	msClientSet    v1alpha1.SecretRotatorV1Alpha1Interface
+	msClientSet    v1.SecretsManagementV1Interface
 	workqueue      workqueue.TypedRateLimitingInterface[string]
 	msInformer     cache.SharedIndexInformer
 	secretsInfomer cache.SharedIndexInformer
 }
 
-func NewController(sc v1alpha1.SecretRotatorV1Alpha1Interface, kc kubernetes.Interface) *Controller {
+func NewController(sc v1.SecretsManagementV1Interface, kc kubernetes.Interface) *Controller {
 	workqueue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
 	managedSecretsInformer := informers.NewSharedIndexInformer(sc)
 	secretsInformer := informers.NewSecretsSharedInformer(kc)
@@ -115,7 +115,7 @@ func (c *Controller) UpdateFunc(oldObj interface{}, newObj interface{}) {
 }
 
 func (c *Controller) DeleteFunc(obj interface{}) {
-	ms, ok := obj.(*apiv1alpha1.ManagedSecret)
+	ms, ok := obj.(*apiv1.SecretsManager)
 
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -124,7 +124,7 @@ func (c *Controller) DeleteFunc(obj interface{}) {
 			return
 		}
 
-		ms, ok = tombstone.Obj.(*apiv1alpha1.ManagedSecret)
+		ms, ok = tombstone.Obj.(*apiv1.SecretsManager)
 		if !ok {
 			runtime.HandleError(fmt.Errorf("tombstone contained object that is not a ManagedSecret"))
 			return
@@ -202,7 +202,7 @@ func (c *Controller) handleSecret(secret *corev1.Secret) {
 	}
 
 	for _, matchedObj := range matchedObjects {
-		ms, ok := matchedObj.(*apiv1alpha1.ManagedSecret)
+		ms, ok := matchedObj.(*apiv1.SecretsManager)
 		if !ok {
 			continue
 		}

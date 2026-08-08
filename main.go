@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	SecretRotatorClientSet "github.com/naseyro/ssc/pkg/clientset/secretrotator/v1alpha1"
+	SecretsManagementClientset "github.com/naseyro/ssc/pkg/clientset/secrets.management.io/v1"
 	"github.com/naseyro/ssc/pkg/controller"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -17,7 +17,7 @@ func main() {
 		klog.Errorf("error building the config file: %v", err)
 	}
 
-	managedSecretClientset, err := SecretRotatorClientSet.NewForConfig(restConfig)
+	smClientset, err := SecretsManagementClientset.NewForConfig(restConfig)
 	if err != nil {
 		klog.Errorf("error creating ManagedSecret clientset: %v", err)
 	}
@@ -27,5 +27,5 @@ func main() {
 		klog.Errorf("error building the Kubernetes Secrets clientset: %v", err)
 	}
 
-	msController := controller.NewController(managedSecretClientset, kcs)
+	msController := controller.NewController(smClientset, kcs)
 }

@@ -4,20 +4,20 @@ import (
 	"context"
 	"time"
 
-	api "github.com/naseyro/ssc/pkg/apis/secretrotator/v1alpha1"
-	"github.com/naseyro/ssc/pkg/clientset/secretrotator/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiv1 "github.com/naseyro/ssc/pkg/apis/secrets.management.io/v1"
+	v1 "github.com/naseyro/ssc/pkg/clientset/secrets.management.io/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 )
 
-func NewSharedIndexInformer(clientSet v1alpha1.SecretRotatorV1Alpha1Interface) cache.SharedIndexInformer {
+func NewSharedIndexInformer(clientSet v1.SecretsManagementV1Interface) cache.SharedIndexInformer {
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 
 		"secretName": func(obj interface{}) ([]string, error) {
-			ms, ok := obj.(*api.ManagedSecret)
+			ms, ok := obj.(*apiv1.SecretsManager)
 			if !ok {
 				return []string{}, nil
 			}
@@ -31,12 +31,12 @@ func NewSharedIndexInformer(clientSet v1alpha1.SecretRotatorV1Alpha1Interface) c
 	}
 
 	sharedInformer := cache.NewSharedIndexInformer(&cache.ListWatch{
-		ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-			return clientSet.ManagedSecrets("").List(ctx, options)
+		ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+			return clientSet.SecretsManagers("").List(ctx, options)
 		},
-		WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-			return clientSet.ManagedSecrets("").Watch(ctx, options)
+		WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+			return clientSet.SecretsManagers("").Watch(ctx, options)
 		},
-	}, &api.ManagedSecret{}, 5*time.Minute, indexers)
+	}, &apiv1.SecretsManager{}, 5*time.Minute, indexers)
 	return sharedInformer
 }

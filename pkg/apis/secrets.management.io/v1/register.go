@@ -1,4 +1,4 @@
-package v1alpha1
+package v1
 
 import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -8,8 +8,8 @@ import (
 
 var (
 	GroupVersion = schema.GroupVersion{
-		Group:   "secretsrotator.io",
-		Version: "v1alpha1",
+		Group:   "secrets.management.io",
+		Version: "v1",
 	}
 	Scheme         = runtime.NewScheme()
 	SchemeBuilder  = runtime.NewSchemeBuilder(addKnownTypes)
@@ -18,7 +18,7 @@ var (
 )
 
 func addKnownTypes(s *runtime.Scheme) error {
-	s.AddKnownTypes(GroupVersion, &ManagedSecret{}, &ManagedSecretList{})
+	s.AddKnownTypes(GroupVersion, &SecretsManager{}, &SecretsManagerList{})
 	v1.AddToGroupVersion(s, GroupVersion)
 	return nil
 }
