@@ -6,6 +6,18 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// TODO: We can create inner interface to include multiple API Versions
+// Instead of SecretRotatorV1Alpha1Interface it should be
+// type SecretRotatorInterface interface
+// and it has multiple functions about API Versions
+/*
+type SecretRotatorInterface {
+	V1Alpha1()
+	V1Beta1()
+	V1()
+}
+And inside every version we should implement the ManagedSecret type based on their types.go
+*/
 type SecretRotatorV1Alpha1Interface interface {
 	ManagedSecrets(namespace string) ManagedSecretsInterface
 }
