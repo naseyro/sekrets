@@ -35,6 +35,7 @@ type MountConfig struct {
 	MountPath string `json:"mountPath,omitempty"`
 	EnvName   string `json:"envName,omitempty"`
 	SecretKey string `json:"secretKey,omitempty"`
+	// We need to add SecretKeyRef in case envFrom/env is being used.
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
