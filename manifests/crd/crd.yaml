@@ -4,8 +4,13 @@ metadata:
   name: secretsmanagers.secrets.management.io
 spec:
   group: secrets.management.io
+  names:
+    kind: SecretsManager
+    plural: secretsmanagers
+    singular: secretsmanager
+  scope: Namespaced
   versions:
-    - name: v1alpha1
+    - name: v1
       served: true
       storage: true
       schema:
@@ -14,46 +19,58 @@ spec:
           properties:
             spec:
               type: object
+              required:
+                - workloads
               properties:
-                secretRefs:
+                workloads:
                   type: array
                   items:
                     type: object
-                    additionalProperties:
-                      type: object
-                      properties:
-                        name:
-                          type: string
-                        namespace:
-                          type: string
-                        targetWorkloads:
-                          type: array
-                          items:
-                            type: object
-                            additionalProperties:
+                    required:
+                      - name
+                      - kind
+                      - apiVersion
+                      - secrets
+                    properties:
+                      name:
+                        type: string
+                      kind:
+                        type: string
+                      apiVersion:
+                        type: string
+                      namespace:
+                        type: string
+                      secrets:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                            mountConfig:
                               type: object
+                              required:
+                                - mountType
                               properties:
-                                name:
+                                mountType:
                                   type: string
-                                kind:
+                                  enum:
+                                    - volume
+                                    - env
+                                    - envFrom
+                                mountPath:
                                   type: string
-                                apiVersion:
+                                envName:
                                   type: string
-                                namespace:
+                                secretKey:
                                   type: string
-                                mountConfig:
-                                  type: object
-                                  properties:
-                                    mountType:
-                                      type: string
-                                    mountPath:
-                                      type: string
-                                    envName:
-                                      type: string
-                                    secretkey:
-                                      type: string
-  names:
-    kind: SecretsManager
-    plural: secretsmanagers
-    singular: secretsmanager
-  scope: Namespaced
+                              # Zero-code Validation Rules ensuring fields match the MountType
+                              x-kubernetes-validations:
+                                - rule: "self.mountType == 'volume' ? has(self.mountPath) : true"
+                                  message: "mountPath is strictly required when mountType is 'volume'."
+                                - rule: "self.mountType == 'volume' ? !has(self.envName) && !has(self.secretKey) : true"
+                                  message: "envName and secretKey are strictly forbidden when mountType is 'volume'."
+                                - rule: "self.mountType == 'env' ? has(self.envName) && has(self.secretKey) : true"
+                                  message: "Both envName and secretKey are required when mountType is 'env'."
