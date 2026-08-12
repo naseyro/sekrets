@@ -21,11 +21,19 @@ func NewSharedIndexInformer(clientSet v1.SecretsManagementV1Interface) cache.Sha
 			if !ok {
 				return []string{}, nil
 			}
+			secretNameSet := make(map[string]struct{})
+
+			for _, workload := range ms.Spec.TargetWorkloads {
+				for _, secretReq := range workload.Secrets {
+					secretNameSet[secretReq.Name] = struct{}{}
+				}
+			}
 
 			var secretNames []string
-			for _, ref := range ms.Spec.SecretRefs {
-				secretNames = append(secretNames, ref.Name)
+			for name := range secretNameSet {
+				secretNames = append(secretNames, name)
 			}
+
 			return secretNames, nil
 		},
 	}
@@ -38,5 +46,6 @@ func NewSharedIndexInformer(clientSet v1.SecretsManagementV1Interface) cache.Sha
 			return clientSet.SecretsManagers("").Watch(ctx, options)
 		},
 	}, &apiv1.SecretsManager{}, 5*time.Minute, indexers)
+
 	return sharedInformer
 }
