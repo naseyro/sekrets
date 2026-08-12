@@ -1,1 +1,1 @@
-**SecretsManager** is a simple Kubernetes controller that watches, rotates and mutates secrets into your workloads resulting in a real-time rollout updates once a secret changes.
+**SecretsManager** a controller that watches, rotates and mutates secrets into your workloads resulting in a real-time rollout updates once a secret changes.
