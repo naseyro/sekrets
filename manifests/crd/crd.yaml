@@ -66,11 +66,14 @@ spec:
                                   type: string
                                 secretKey:
                                   type: string
-                              # Zero-code Validation Rules ensuring fields match the MountType
                               x-kubernetes-validations:
                                 - rule: "self.mountType == 'volume' ? has(self.mountPath) : true"
                                   message: "mountPath is strictly required when mountType is 'volume'."
                                 - rule: "self.mountType == 'volume' ? !has(self.envName) && !has(self.secretKey) : true"
                                   message: "envName and secretKey are strictly forbidden when mountType is 'volume'."
                                 - rule: "self.mountType == 'env' ? has(self.envName) && has(self.secretKey) : true"
-                                  message: "Both envName and secretKey are required when mountType is 'env'."
+                                  message: "Both envName and secretKey are strictly required when mountType is 'env'."
+                                - rule: "self.mountType == 'env' ? !has(self.mountPath) : true"
+                                  message: "mountPath is strictly forbidden when mountType is 'env'."
+                                - rule: "self.mountType == 'envFrom' ? !has(self.mountPath) && !has(self.envName) && !has(self.secretKey) : true"
+                                  message: "mountPath, envName, and secretKey are all strictly forbidden when mountType is 'envFrom'."

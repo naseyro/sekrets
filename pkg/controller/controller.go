@@ -13,7 +13,6 @@ import (
 	"github.com/naseyro/ssc/pkg/informers"
 	"github.com/naseyro/ssc/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apimachineryerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -363,7 +362,7 @@ func toPodTemplateSpec(unstructuredWorkload *unstructured.Unstructured, podTempl
 func (c *Controller) getGVR(workload *apiv1.Workload) (schema.GroupVersionResource, error) {
 	group, version, err := SeparateKey(workload.APIVersion)
 	if err != nil {
-		return schema.GroupVersionResource{}, fmt.Errorf("error structuring the GroupVersion", err)
+		return schema.GroupVersionResource{}, fmt.Errorf("error structuring the GroupVersion: %v", err)
 	}
 	mapping, err := c.mapper.RESTMapping(schema.GroupKind{
 		Group: group,
@@ -583,7 +582,7 @@ func injectEnv(workloadTemplate *corev1.PodTemplateSpec, secretName string, envN
 func (c *Controller) GetSecret(secretRef *apiv1.WorkloadSecret, namespace string) (*corev1.Secret, error) {
 	secret, err := c.secretsLister.Secrets(namespace).Get(secretRef.Name)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apimachineryerrors.IsNotFound(err) {
 			return nil, fmt.Errorf("referenced secret %s/%s not found in cache", namespace, secretRef.Name)
 		}
 		return nil, fmt.Errorf("failed to fetch secret %s/%s: %w", namespace, secretRef.Name, err)
