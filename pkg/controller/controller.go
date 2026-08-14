@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	apiv1 "github.com/naseyro/ssc/pkg/apis/secrets.management.io/v1"
 	v1 "github.com/naseyro/ssc/pkg/clientset/secrets.management.io/v1"
 	"github.com/naseyro/ssc/pkg/informers"
@@ -28,7 +30,6 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 )
 
 type Controller struct {
@@ -40,7 +41,7 @@ type Controller struct {
 	msInformer       cache.SharedIndexInformer
 	secretsInformer  cache.SharedIndexInformer
 	secretsLister    corev1listers.SecretLister
-	mapper           restmapper.DeferredDiscoveryRESTMapper
+	mapper           *restmapper.DeferredDiscoveryRESTMapper
 }
 
 func NewController(sc v1.SecretsManagementV1Interface, kc kubernetes.Interface, dc dynamic.Interface, discoveryClient discovery.DiscoveryInterface) *Controller {
@@ -58,7 +59,7 @@ func NewController(sc v1.SecretsManagementV1Interface, kc kubernetes.Interface, 
 		msInformer:       managedSecretsInformer,
 		secretsInformer:  secretsInformer,
 		secretsLister:    secretsLister,
-		mapper:           *mapper,
+		mapper:           mapper,
 	}
 	managedSecretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    ctr.AddFunc,
@@ -80,7 +81,7 @@ func (c *Controller) secretsAddFunc(obj interface{}) {
 		utilruntime.HandleError(fmt.Errorf("error converting objecto to Secret"))
 		return
 	}
-	c.addSecretKey(secret)
+	c.addSecretKeyToWorkqueue(secret)
 }
 
 func (c *Controller) secretsUpdateFunc(oldObj, newObj interface{}) {
@@ -95,7 +96,7 @@ func (c *Controller) secretsUpdateFunc(oldObj, newObj interface{}) {
 		utilruntime.HandleError(fmt.Errorf("error converting objecto to Secret"))
 		return
 	}
-	c.addSecretKey(secret)
+	c.addSecretKeyToWorkqueue(secret)
 }
 
 func (c *Controller) secretsDeleteFunc(obj interface{}) {
@@ -113,7 +114,7 @@ func (c *Controller) secretsDeleteFunc(obj interface{}) {
 		}
 	}
 
-	c.addSecretKey(secret)
+	c.addSecretKeyToWorkqueue(secret)
 }
 
 func (c *Controller) AddFunc(obj interface{}) {
@@ -164,23 +165,35 @@ func (c *Controller) DeleteFunc(obj interface{}) {
 	}
 }
 
-func (c *Controller) Run() error {
-	stopCh := make(chan struct{})
+func (c *Controller) Run(workers int, stopCh <-chan struct{}) error {
+	defer utilruntime.HandleCrash()
+	defer c.queue.ShutDown()
+
+	klog.Info("Starting SecretsManager controller")
 
 	go c.msInformer.Run(stopCh)
+	go c.secretsInformer.Run(stopCh)
 
-	if !cache.WaitForCacheSync(stopCh, c.msInformer.HasSynced) {
-		return fmt.Errorf("error syncing the ManagedSecrets Informer Cache")
+	klog.Info("Waiting for informer caches to sync")
+	if ok := cache.WaitForCacheSync(stopCh, c.msInformer.HasSynced, c.secretsInformer.HasSynced); !ok {
+		return fmt.Errorf("failed to wait for caches to sync")
 	}
-	wait.Until(c.worker, time.Second, stopCh)
+
+	klog.Info("Starting workers")
+	for i := 0; i < workers; i++ {
+		go wait.Until(c.worker, time.Second, stopCh)
+	}
+
+	klog.Info("Started workers")
+
 	<-stopCh
+	klog.Info("Shutting down workers")
 
 	return nil
 }
 
 func (c *Controller) worker() {
 	for c.proccessNextItem() {
-
 	}
 }
 
@@ -223,7 +236,7 @@ func (c *Controller) reconcileWorkloads(secretsManager *apiv1.SecretsManager) er
 			errs = append(errs, fmt.Errorf("failed to get GVR for workload %s: %w", workload.Name, err))
 			continue
 		}
-		unstructured, err := c.dynamicClient.Resource(resource).Get(context.Background(), workload.Name, metav1.GetOptions{})
+		unstructuredWorkload, err := c.dynamicClient.Resource(resource).Get(context.Background(), workload.Name, metav1.GetOptions{})
 		if err != nil {
 			if apimachineryerrors.IsNotFound(err) {
 				continue
@@ -231,7 +244,7 @@ func (c *Controller) reconcileWorkloads(secretsManager *apiv1.SecretsManager) er
 			errs = append(errs, fmt.Errorf("failed to fetch workload %s: %w", workload.Name, err))
 			continue
 		}
-		workloadTemplate, err := getWorkloadTemplate(unstructured)
+		workloadTemplate, err := getWorkloadTemplate(unstructuredWorkload)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to extract template for %s: %w", workload.Name, err))
 			continue
@@ -245,31 +258,43 @@ func (c *Controller) reconcileWorkloads(secretsManager *apiv1.SecretsManager) er
 				continue
 			}
 			computedHash := utils.ComputeSecretHash(secret)
-			if isSecretVolumed := isSecretVolumed(workloadTemplate, s.Name); isSecretVolumed {
-				if isAnnotated := isSecretAnnotated(workloadTemplate, s.Name, computedHash); !isAnnotated {
+			var isMounted bool
+
+			if s.MountConfig == nil || s.MountConfig.MountType == "volume" || s.MountConfig.MountType == "" {
+				isMounted = isSecretVolumed(workloadTemplate, s.Name)
+			} else if s.MountConfig.MountType == "envFrom" {
+				isMounted = isSecretEnvFromMounted(workloadTemplate, s.Name)
+			} else if s.MountConfig.MountType == "env" {
+				isMounted = isSecretEnvMounted(workloadTemplate, s.Name, s.MountConfig.EnvName)
+			}
+
+			if isMounted {
+				if !isSecretAnnotated(workloadTemplate, s.Name, computedHash) {
 					annotate(workloadTemplate, s.Name, computedHash)
 					isModified = true
 				}
-			} else { // TODO: here we should check for the env/envFrom. we will bypass for simplicity now
-				err := c.injectSecretAsVolume(workloadTemplate, &s)
-				if err != nil {
-					klog.Info("Warning: failed to inject secret as a volume")
-					continue
+			} else {
+				if s.MountConfig == nil || s.MountConfig.MountType == "volume" || s.MountConfig.MountType == "" {
+					injectVolume(workloadTemplate, &s)
+				} else if s.MountConfig.MountType == "envFrom" {
+					injectEnvFrom(workloadTemplate, s.Name)
+				} else if s.MountConfig.MountType == "env" {
+					injectEnv(workloadTemplate, s.Name, s.MountConfig.EnvName, s.MountConfig.SecretKey)
 				}
 				annotate(workloadTemplate, s.Name, computedHash)
 				isModified = true
 			}
 		}
 		if isModified {
-			err = toPodTemplateSpec(unstructured, workloadTemplate)
+			err = toPodTemplateSpec(unstructuredWorkload, workloadTemplate)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("failed to convert template back for %s: %w", workload.Name, err))
 				continue
 			}
 
 			_, err = c.dynamicClient.Resource(resource).
-				Namespace(unstructured.GetNamespace()).
-				Update(context.Background(), unstructured, metav1.UpdateOptions{})
+				Namespace(unstructuredWorkload.GetNamespace()).
+				Update(context.Background(), unstructuredWorkload, metav1.UpdateOptions{})
 
 			if err != nil {
 				errs = append(errs, fmt.Errorf("failed to update workload %s: %w", workload.Name, err))
@@ -286,7 +311,7 @@ func resolveDefaults(workload *apiv1.Workload, secretsManager *apiv1.SecretsMana
 	}
 }
 
-func (c *Controller) addSecretKey(secret *corev1.Secret) {
+func (c *Controller) addSecretKeyToWorkqueue(secret *corev1.Secret) {
 	matchedObjects, err := c.msInformer.GetIndexer().ByIndex("secretName", secret.Name)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -350,15 +375,6 @@ func (c *Controller) getGVR(workload *apiv1.Workload) (schema.GroupVersionResour
 	return mapping.Resource, nil
 }
 
-func isSecretVolumed(workloadTemplate *corev1.PodTemplateSpec, secretName string) bool {
-	for _, volume := range workloadTemplate.Spec.Volumes {
-		if volume.Secret != nil && volume.Secret.SecretName == secretName {
-			return true
-		}
-	}
-	return false
-}
-
 func isSecretAnnotated(workloadTemplate *corev1.PodTemplateSpec, secretName, computedHash string) bool {
 	if workloadTemplate.Annotations == nil {
 		return false
@@ -379,52 +395,190 @@ func annotate(workloadTemplate *corev1.PodTemplateSpec, secretName, computedHash
 	workloadTemplate.Annotations[key] = computedHash
 }
 
-func (c *Controller) injectSecretAsVolume(workloadTemplate *corev1.PodTemplateSpec, secretRef *apiv1.WorkloadSecret) error {
-	volumeName := fmt.Sprintf("%s-volume", secretRef.Name)
-	if secretRef.MountConfig.MountPath == "" {
-		secretRef.MountConfig.MountPath = fmt.Sprintf("/etc/secrets/%s", secretRef.Name)
+func isSecretVolumed(workloadTemplate *corev1.PodTemplateSpec, secretName string) bool {
+	if workloadTemplate == nil || len(workloadTemplate.Spec.Containers) == 0 {
+		return false
 	}
 
-	workloadTemplate.Spec.Volumes = append(workloadTemplate.Spec.Volumes, corev1.Volume{
-		Name: volumeName,
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: secretRef.Name,
-			},
-		},
-	})
+	volumeName := fmt.Sprintf("%s-volume", secretName)
 
-	// This is not the optimal way to handle Secrets, we inject secret in all available containers
-	// in a workload but this is not necessarily needed. This needs an optimization.
-	// Related to https://github.com/naseyro/sekrets/issues/11
+	hasVolume := false
+	for _, volume := range workloadTemplate.Spec.Volumes {
+		if volume.Name == volumeName && volume.Secret != nil && volume.Secret.SecretName == secretName {
+			hasVolume = true
+			break
+		}
+	}
+
+	if !hasVolume {
+		return false
+	}
+
 	for i := range workloadTemplate.Spec.Containers {
-		workloadTemplate.Spec.Containers[i].VolumeMounts = append(
-			workloadTemplate.Spec.Containers[i].VolumeMounts,
-			corev1.VolumeMount{
-				Name:      volumeName,
-				MountPath: secretRef.MountConfig.MountPath,
-				ReadOnly:  true,
-			},
-		)
+		hasMount := false
+		for _, mount := range workloadTemplate.Spec.Containers[i].VolumeMounts {
+			if mount.Name == volumeName {
+				hasMount = true
+				break
+			}
+		}
+
+		if !hasMount {
+			return false
+		}
 	}
-	return nil
+	return true
 }
 
-// We need to check for: Env and EnvFrom
-// func isSecretEnved(workloadTemplate *corev1.PodTemplateSpec, secretName string) bool {
-// 	containers := workloadTemplate.Spec.Containers
-// 	isSecretEnv(containers)
-// 	isSecretEnvFrom(containers)
-// }
+func injectVolume(workloadTemplate *corev1.PodTemplateSpec, secretRef *apiv1.WorkloadSecret) {
+	volumeName := fmt.Sprintf("%s-volume", secretRef.Name)
 
-// We need a way to return all available Secrets in the
-// func isSecretEnv(containers []corev1.Container) bool {
-// 	for
-// }
+	mountPath := secretRef.MountConfig.MountPath
+	if mountPath == "" {
+		mountPath = fmt.Sprintf("/etc/secrets/%s", secretRef.Name)
+	}
 
-// func isSecretEnvFrom(containers []corev1.Container) bool {
+	hasVolume := false
+	for _, vol := range workloadTemplate.Spec.Volumes {
+		if vol.Name == volumeName {
+			hasVolume = true
+			break
+		}
+	}
+	if !hasVolume {
+		workloadTemplate.Spec.Volumes = append(workloadTemplate.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{SecretName: secretRef.Name},
+			},
+		})
+	}
 
-// }
+	for i := range workloadTemplate.Spec.Containers {
+		hasMount := false
+		for _, mount := range workloadTemplate.Spec.Containers[i].VolumeMounts {
+			if mount.Name == volumeName {
+				hasMount = true
+				break
+			}
+		}
+
+		if !hasMount {
+			workloadTemplate.Spec.Containers[i].VolumeMounts = append(
+				workloadTemplate.Spec.Containers[i].VolumeMounts,
+				corev1.VolumeMount{
+					Name:      volumeName,
+					MountPath: mountPath,
+					ReadOnly:  true,
+				},
+			)
+		}
+	}
+}
+
+func isSecretEnvFromMounted(workloadTemplate *corev1.PodTemplateSpec, secretName string) bool {
+	if workloadTemplate == nil || len(workloadTemplate.Spec.Containers) == 0 {
+		return false
+	}
+	containers := workloadTemplate.Spec.Containers
+	for i := range containers {
+		var found bool
+		for _, envFrom := range containers[i].EnvFrom {
+			if envFrom.SecretRef != nil && envFrom.SecretRef.Name == secretName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+func injectEnvFrom(workloadTemplate *corev1.PodTemplateSpec, secretName string) {
+	containers := workloadTemplate.Spec.Containers
+	for i := range containers {
+		hasEnvFrom := false
+		for _, ef := range containers[i].EnvFrom {
+			if ef.SecretRef != nil && ef.SecretRef.Name == secretName {
+				hasEnvFrom = true
+				break
+			}
+		}
+
+		if !hasEnvFrom {
+			containers[i].EnvFrom = append(
+				containers[i].EnvFrom,
+				corev1.EnvFromSource{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+					},
+				},
+			)
+		}
+	}
+}
+
+func isSecretEnvMounted(workloadTemplate *corev1.PodTemplateSpec, secretName string, envName string) bool {
+	if workloadTemplate == nil || len(workloadTemplate.Spec.Containers) == 0 {
+		return false
+	}
+	containers := workloadTemplate.Spec.Containers
+	for i := range containers {
+		var found bool
+
+		for _, env := range containers[i].Env {
+			if env.Name == envName {
+				if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+					if env.ValueFrom.SecretKeyRef.Name == secretName {
+						found = true
+						break
+					}
+				}
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
+func injectEnv(workloadTemplate *corev1.PodTemplateSpec, secretName string, envName string, secretKey string) {
+	if workloadTemplate == nil {
+		return
+	}
+
+	for i := range workloadTemplate.Spec.Containers {
+		targetEnv := corev1.EnvVar{
+			Name: envName,
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+					Key:                  secretKey,
+				},
+			},
+		}
+		envIndex := -1
+		for j, env := range workloadTemplate.Spec.Containers[i].Env {
+			if env.Name == envName {
+				envIndex = j
+				break
+			}
+		}
+
+		if envIndex == -1 {
+			workloadTemplate.Spec.Containers[i].Env = append(
+				workloadTemplate.Spec.Containers[i].Env,
+				targetEnv,
+			)
+		} else {
+			workloadTemplate.Spec.Containers[i].Env[envIndex] = targetEnv
+		}
+	}
+}
 
 func (c *Controller) GetSecret(secretRef *apiv1.WorkloadSecret, namespace string) (*corev1.Secret, error) {
 	secret, err := c.secretsLister.Secrets(namespace).Get(secretRef.Name)
