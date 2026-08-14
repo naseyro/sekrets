@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-envfrom
+  namespace: default
+  labels:
+    app: envfrom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: envfrom
+  template:
+    metadata:
+      labels:
+        app: envfrom
+    spec:
+      containers:
+        - name: app
+          image: alpine
+          command: ["sleep", "36000"]

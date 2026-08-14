@@ -1,0 +1,18 @@
+# CASE: default volume mount (no mountConfig at all).
+# Expect: Deployment `test-app` gets volume `test-ci-creds-volume` (secret test-ci-creds)
+# mounted at the default path /etc/secrets/test-ci-creds on ALL containers, plus pod-template
+# annotation secrets.management.io/test-ci-creds=<hash>.
+# To test hash-based rollouts: `kubectl edit secret test-ci-creds` and change the value,
+# then watch the annotation / pod rollout change.
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: case-vol-default
+  namespace: default
+spec:
+  workloads:
+    - name: test-app
+      kind: Deployment
+      apiVersion: apps/v1
+      secrets:
+        - name: test-ci-creds

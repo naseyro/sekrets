@@ -1,0 +1,24 @@
+# CASE: workload in a DIFFERENT namespace than the SecretsManager.
+# The SecretsManager lives in `default`, the Deployment `test-app-prod` and its
+# secret live in `prod` (see support/06-deployments-prod.yaml, support/02-secrets-prod.yaml).
+# Expect: Deployment `test-app-prod` gets env var PROD_DB_PASSWORD (test-db-creds/password).
+# NOTE: secret change events only trigger SecretsManagers in the secret's own namespace,
+# so editing the secret in `prod` will NOT auto re-sync this manager. Re-apply the
+# SecretsManager to force a sync.
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: case-cross-namespace
+  namespace: default
+spec:
+  workloads:
+    - name: test-app-prod
+      kind: Deployment
+      apiVersion: apps/v1
+      namespace: prod
+      secrets:
+        - name: test-db-creds
+          mountConfig:
+            mountType: env
+            envName: PROD_DB_PASSWORD
+            secretKey: password

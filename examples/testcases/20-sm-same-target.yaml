@@ -1,0 +1,17 @@
+# CASE: same workload + same secret + same mount as 10-sm-volume-default.yaml.
+# Applying BOTH managers must not duplicate anything (no second volume, no second mount,
+# no conflicting annotations) — verifies idempotency across SecretsManagers.
+# After both are applied, `test-app` must still have exactly ONE
+# test-ci-creds-volume volume and ONE mount on its container.
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: case-same-target
+  namespace: default
+spec:
+  workloads:
+    - name: test-app
+      kind: Deployment
+      apiVersion: apps/v1
+      secrets:
+        - name: test-ci-creds

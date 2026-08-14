@@ -1,0 +1,22 @@
+# Workload in another namespace for the cross-namespace test case.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app-prod
+  namespace: prod
+  labels:
+    app: test-prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-prod
+  template:
+    metadata:
+      labels:
+        app: test-prod
+    spec:
+      containers:
+        - name: app
+          image: alpine
+          command: ["sleep", "36000"]

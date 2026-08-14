@@ -1,0 +1,18 @@
+# CASE: env mount — a single key from a secret becomes one env var.
+# Expect: Deployment `app-env` gets env var DB_PASSWORD from secretKeyRef test-db-creds/password.
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: case-env-key
+  namespace: default
+spec:
+  workloads:
+    - name: app-env
+      kind: Deployment
+      apiVersion: apps/v1
+      secrets:
+        - name: test-db-creds
+          mountConfig:
+            mountType: env
+            envName: DB_PASSWORD
+            secretKey: password

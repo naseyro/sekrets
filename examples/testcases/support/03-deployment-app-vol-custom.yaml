@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-vol-custom
+  namespace: default
+  labels:
+    app: vol-custom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vol-custom
+  template:
+    metadata:
+      labels:
+        app: vol-custom
+    spec:
+      containers:
+        - name: app
+          image: alpine
+          command: ["sleep", "36000"]
