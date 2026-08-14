@@ -24,6 +24,7 @@ func (m *SecretsManagers) Get(ctx context.Context, name string, opts metav1.GetO
 	result := &v1.SecretsManager{}
 	err := m.rc.Get().Namespace(m.namespace).
 		Resource("secretsmanagers").
+		Name(name).
 		VersionedParams(&opts, v1.ParameterCodec).
 		Do(ctx).Into(result)
 	return result, err

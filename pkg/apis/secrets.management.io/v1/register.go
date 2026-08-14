@@ -22,3 +22,7 @@ func addKnownTypes(s *runtime.Scheme) error {
 	v1.AddToGroupVersion(s, GroupVersion)
 	return nil
 }
+
+func init() {
+	SchemeBuilder.AddToScheme(Scheme)
+}

@@ -6,6 +6,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+func init() {
+	v1.AddKnownTypes(scheme.Scheme)
+}
+
 type Interface interface {
 	SecretsManagementV1() SecretsManagementV1Interface
 }

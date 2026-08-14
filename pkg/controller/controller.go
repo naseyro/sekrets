@@ -235,7 +235,7 @@ func (c *Controller) reconcileWorkloads(secretsManager *apiv1.SecretsManager) er
 			errs = append(errs, fmt.Errorf("failed to get GVR for workload %s: %w", workload.Name, err))
 			continue
 		}
-		unstructuredWorkload, err := c.dynamicClient.Resource(resource).Get(context.Background(), workload.Name, metav1.GetOptions{})
+		unstructuredWorkload, err := c.dynamicClient.Resource(resource).Namespace(workload.Namespace).Get(context.Background(), workload.Name, metav1.GetOptions{})
 		if err != nil {
 			if apimachineryerrors.IsNotFound(err) {
 				continue
@@ -432,9 +432,9 @@ func isSecretVolumed(workloadTemplate *corev1.PodTemplateSpec, secretName string
 func injectVolume(workloadTemplate *corev1.PodTemplateSpec, secretRef *apiv1.WorkloadSecret) {
 	volumeName := fmt.Sprintf("%s-volume", secretRef.Name)
 
-	mountPath := secretRef.MountConfig.MountPath
-	if mountPath == "" {
-		mountPath = fmt.Sprintf("/etc/secrets/%s", secretRef.Name)
+	mountPath := fmt.Sprintf("/etc/secrets/%s", secretRef.Name)
+	if secretRef.MountConfig != nil && secretRef.MountConfig.MountPath != "" {
+		mountPath = secretRef.MountConfig.MountPath
 	}
 
 	hasVolume := false
