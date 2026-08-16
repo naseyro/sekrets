@@ -598,10 +598,3 @@ func SeparateKey(key string) (string, string, error) {
 	}
 	return namespaceKey[0], namespaceKey[1], nil
 }
-
-// isSecretExistInWorkload does call all of the below
-// I want to check if Annotations does exist in the workload metadata
-// I want to check if a specific secret is being used in a workload volumes or env
-// function to check workload for secret annotations existence
-// function to check workload for secret volumes existence
-// function to check workload for secret env existence
