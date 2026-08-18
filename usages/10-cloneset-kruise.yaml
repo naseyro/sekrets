@@ -1,0 +1,48 @@
+# 10 — OpenKruise CloneSets (apps.kruise.io) work too.
+# Requires the OpenKruise CRDs installed in your cluster.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: uc-cloneset
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cache-creds
+  namespace: uc-cloneset
+type: Opaque
+stringData:
+  CACHE_PASSWORD: "cache-secret"
+---
+apiVersion: apps.kruise.io/v1alpha1
+kind: CloneSet
+metadata:
+  name: cache-node
+  namespace: uc-cloneset
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cache
+  template:
+    metadata:
+      labels:
+        app: cache
+    spec:
+      containers:
+        - name: cache-container
+          image: redis:alpine
+---
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: cloneset-sm
+  namespace: uc-cloneset
+spec:
+  workloads:
+    - name: cache-node
+      namespace: uc-cloneset
+      kind: CloneSet
+      apiVersion: apps.kruise.io/v1alpha1
+      secrets:
+        - name: cache-creds

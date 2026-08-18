@@ -1,0 +1,54 @@
+# 08 — Cross-namespace: one manager keeps an eye on another namespace.
+# The SecretsManager lives in uc-cross-ns-mgr and injects into the workload
+# that lives in uc-cross-ns. The workload's namespace is all that matters.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: uc-cross-ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: uc-cross-ns-mgr
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+  namespace: uc-cross-ns
+type: Opaque
+stringData:
+  API_TOKEN: "sk-cross-namespace-42"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-app
+  namespace: uc-cross-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend-container
+          image: nginx:alpine
+---
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: cross-ns-sm
+  namespace: uc-cross-ns-mgr
+spec:
+  workloads:
+    - name: frontend-app
+      namespace: uc-cross-ns
+      kind: Deployment
+      apiVersion: apps/v1
+      secrets:
+        - name: app-secret

@@ -1,0 +1,53 @@
+# 04 — One secret key into one variable.
+# mountType: env picks a single key (secretKey) and exposes it as one env var (envName).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: uc-env-key
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+  namespace: uc-env-key
+type: Opaque
+stringData:
+  username: "admin"
+  password: "supersecretpassword"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-app
+  namespace: uc-env-key
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend-container
+          image: redis:alpine
+---
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: env-key-sm
+  namespace: uc-env-key
+spec:
+  workloads:
+    - name: backend-app
+      namespace: uc-env-key
+      kind: Deployment
+      apiVersion: apps/v1
+      secrets:
+        - name: db-credentials
+          mountConfig:
+            mountType: env
+            envName: DB_PASSWORD
+            secretKey: password

@@ -1,0 +1,48 @@
+# 01 — The default: volume mount, zero config.
+# No mountConfig? The secret is mounted (volume) at /etc/secrets/<secret-name>.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: uc-volume-default
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-token
+  namespace: uc-volume-default
+type: Opaque
+stringData:
+  API_TOKEN: "sk-1234567890"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-app
+  namespace: uc-volume-default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend-container
+          image: nginx:alpine
+---
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: default-volume-s
+  namespace: uc-volume-default
+spec:
+  workloads:
+    - name: frontend-app
+      namespace: uc-volume-default
+      kind: Deployment
+      apiVersion: apps/v1
+      secrets:
+        - name: api-token

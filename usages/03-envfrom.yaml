@@ -1,0 +1,51 @@
+# 03 — Every secret key becomes an environment variable.
+# mountType: envFrom dumps all keys of the secret into the container env.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: uc-envfrom
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-config
+  namespace: uc-envfrom
+type: Opaque
+stringData:
+  API_URL: "https://api.example.com"
+  DEBUG_MODE: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-app
+  namespace: uc-envfrom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend-container
+          image: nginx:alpine
+---
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: envfrom-sm
+  namespace: uc-envfrom
+spec:
+  workloads:
+    - name: frontend-app
+      namespace: uc-envfrom
+      kind: Deployment
+      apiVersion: apps/v1
+      secrets:
+        - name: app-config
+          mountConfig:
+            mountType: envFrom

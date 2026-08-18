@@ -1,0 +1,52 @@
+# 02 — Volume mount with your own path.
+# mountType: volume + mountPath puts the secret files exactly where you want.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: uc-custom-path
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+  namespace: uc-custom-path
+type: Opaque
+stringData:
+  username: "admin"
+  password: "supersecretpassword"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-app
+  namespace: uc-custom-path
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend-container
+          image: redis:alpine
+---
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: custom-path-sm
+  namespace: uc-custom-path
+spec:
+  workloads:
+    - name: backend-app
+      namespace: uc-custom-path
+      kind: Deployment
+      apiVersion: apps/v1
+      secrets:
+        - name: db-credentials
+          mountConfig:
+            mountType: volume
+            mountPath: /var/run/secrets

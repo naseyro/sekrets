@@ -1,0 +1,55 @@
+# 09 — Argo Rollouts (argoproj.io) work too.
+# Requires the Argo Rollouts CRD installed in your cluster.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: uc-rollout
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: feature-creds
+  namespace: uc-rollout
+type: Opaque
+stringData:
+  FEATURE_FLAG_URL: "https://flags.example.com"
+  FEATURE_TOKEN: "ft-555"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: checkout-service
+  namespace: uc-rollout
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: checkout
+  template:
+    metadata:
+      labels:
+        app: checkout
+    spec:
+      containers:
+        - name: checkout-container
+          image: nginx:alpine
+  strategy:
+    canary:
+      steps:
+        - setWeight: 25
+---
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: rollout-sm
+  namespace: uc-rollout
+spec:
+  workloads:
+    - name: checkout-service
+      namespace: uc-rollout
+      kind: Rollout
+      apiVersion: argoproj.io/v1alpha1
+      secrets:
+        - name: feature-creds
+          mountConfig:
+            mountType: envFrom

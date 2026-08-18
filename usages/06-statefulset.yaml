@@ -1,0 +1,53 @@
+# 06 — StatefulSets work too.
+# Same story as Deployments — injection happens on spec.template.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: uc-statefulset
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+  namespace: uc-statefulset
+type: Opaque
+stringData:
+  username: "admin"
+  password: "supersecretpassword"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: backend-db
+  namespace: uc-statefulset
+spec:
+  serviceName: "backend"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend-container
+          image: redis:alpine
+---
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: statefulset-sm
+  namespace: uc-statefulset
+spec:
+  workloads:
+    - name: backend-db
+      namespace: uc-statefulset
+      kind: StatefulSet
+      apiVersion: apps/v1
+      secrets:
+        - name: db-credentials
+          mountConfig:
+            mountType: volume
+            mountPath: /var/run/secrets

@@ -1,0 +1,50 @@
+# 07 — DaemonSets work too.
+# Every node's pod gets the monitoring credentials as env vars.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: uc-daemonset
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: monitoring-creds
+  namespace: uc-daemonset
+type: Opaque
+stringData:
+  PROM_URL: "https://prometheus.example.com"
+  API_KEY: "key-9876543210"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: metrics-collector
+  namespace: uc-daemonset
+spec:
+  selector:
+    matchLabels:
+      app: metrics
+  template:
+    metadata:
+      labels:
+        app: metrics
+    spec:
+      containers:
+        - name: metrics-container
+          image: nginx:alpine
+---
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: daemonset-sm
+  namespace: uc-daemonset
+spec:
+  workloads:
+    - name: metrics-collector
+      namespace: uc-daemonset
+      kind: DaemonSet
+      apiVersion: apps/v1
+      secrets:
+        - name: monitoring-creds
+          mountConfig:
+            mountType: envFrom

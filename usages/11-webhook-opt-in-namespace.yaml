@@ -1,0 +1,55 @@
+# 11 — Webhook-first: the opt-in namespace.
+# Label a namespace and the admission webhook injects into workloads the
+# moment they are created — before they ever run. The controller stays as
+# the safety net, keeping everything in sync afterwards.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: uc-webhook
+  labels:
+    secrets-manager.io/injection: "enabled"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-config
+  namespace: uc-webhook
+type: Opaque
+stringData:
+  API_URL: "https://api.example.com"
+  DEBUG_MODE: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-app
+  namespace: uc-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend-container
+          image: nginx:alpine
+---
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: webhook-sm
+  namespace: uc-webhook
+spec:
+  workloads:
+    - name: frontend-app
+      namespace: uc-webhook
+      kind: Deployment
+      apiVersion: apps/v1
+      secrets:
+        - name: app-config
+          mountConfig:
+            mountType: envFrom
