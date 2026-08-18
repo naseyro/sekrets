@@ -23,3 +23,33 @@ webhooks:
         operations: ["CREATE", "UPDATE"]
         resources: ["*"]
         scope: Namespaced
+  - name: mutate-workloads.secrets-management.io
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Ignore
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: ["kube-system", "kube-node-lease", "kube-public", "secrets-manager-system"]
+    clientConfig:
+      service:
+        name: secrets-manager-webhook
+        namespace: secrets-manager-system
+        path: /mutate
+    rules:
+      - apiGroups: ["apps"]
+        apiVersions: ["*"]
+        resources: ["deployments", "statefulsets", "daemonsets"]
+        operations: ["CREATE", "UPDATE"]
+        scope: Namespaced
+      - apiGroups: ["argoproj.io"]
+        apiVersions: ["*"]
+        resources: ["rollouts"]
+        operations: ["CREATE", "UPDATE"]
+        scope: Namespaced
+      - apiGroups: ["apps.kruise.io"]
+        apiVersions: ["*"]
+        resources: ["clonesets", "statefulsets", "daemonsets"]
+        operations: ["CREATE", "UPDATE"]
+        scope: Namespaced
