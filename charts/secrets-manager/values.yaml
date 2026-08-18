@@ -3,7 +3,7 @@
 replicaCount: 1
 
 image:
-  repository: naseyro/sekrets
+  repository: ghcr.io/naseyro/sekrets
   pullPolicy: IfNotPresent
   tag: "v0.1.2"
 

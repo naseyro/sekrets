@@ -4,7 +4,7 @@ metadata:
   name: secrets-manager-controller
   namespace: secrets-manager-system
 spec:
-  replicas: { { .Values.replicaCount } }
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: secrets-manager-controller
@@ -17,7 +17,7 @@ spec:
       containers:
         - name: controller
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: { { .Values.image.pullPolicy } }
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - --webhook
           ports:

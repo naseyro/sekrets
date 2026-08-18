@@ -2,7 +2,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: secrets-manager-selfsigned
-  namespace: { { .Release.Namespace } }
+  namespace: {{ .Release.Namespace }}
 spec:
   selfSigned: {}
 ---
@@ -10,7 +10,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: secrets-manager-webhook-certs
-  namespace: { { .Release.Namespace } }
+  namespace: {{ .Release.Namespace }}
 spec:
   dnsNames:
     - secrets-manager-webhook.{{ .Release.Namespace }}.svc
