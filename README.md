@@ -71,7 +71,7 @@ That's it. Every time the secret changes, the workload rolls with the fresh valu
 1. Three ways to inject such as normal Secret reference. A `volume` (the default; secret files land at `/etc/secrets/<secret-name>`, or wherever you set `mountPath`), `envFrom` (every key becomes an env var), or `env` (one key into one variable, via `envName` + `secretKey`).
 2. Didn't specify a `mountConfig`? You get the default volume mount with zero extra typing.
 3. Immediate rollout update the moment a secret changes, the controller rolls the workload so pods pick up the fresh values automatically and our controller currently works with Kubernetes-native workloads in addition to OpenKruise CloneSet and Argo Rollouts.
-4. Scheduled rotation is change-driven only currently. A time-based rotation is on the roadmap through a schedule or a cron syntax.
+4. Rotation is change-driven only currently. A time-based rotation is on the roadmap through a schedule or a cron syntax.
 
 **WIP**: Let the controller support every in-cluster appropriate workload automatically.
 
