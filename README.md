@@ -1,8 +1,4 @@
-# SecretsManager
-
 SecretsManager is a Kubernetes controller that injects your secrets into your workloads and rolls them the moment a secret changes.
-
-## How to use it
 
 One command deploys the controller using helm:
 
@@ -12,8 +8,6 @@ helm install secrets-manager oci://ghcr.io/naseyro/charts/secrets-manager \
   -n secrets-manager-system \
   --create-namespace
 ```
-
-Then it's three small steps:
 
 **1. A Secret:**
 
@@ -70,17 +64,15 @@ spec:
         - name: db-credentials
 ```
 
-That's it: the secret lands where the workload expects it, and every time the secret changes, the workload rolls with the fresh values automatically.
+That's it. Every time the secret changes, the workload rolls with the fresh values automatically.
 
 **What it can do:**
 
-1. **Three ways to inject** such as normal Secret reference. A `volume` (the default; secret files land at `/etc/secrets/<secret-name>`, or wherever you set `mountPath`), `envFrom` (every key becomes an env var), or `env` (one key into one variable, via `envName` + `secretKey`).
-2. **No `mountConfig`? No worries** — you get the default volume mount with zero extra typing.
-3. **Rotation on change** — the moment a secret changes, the controller rolls the workload so pods pick up the fresh values automatically.
-4. **Scheduled rotation (cron)? Not yet** — today rotation is change-driven only; time-based rotation is on the roadmap.
-
-The `SecretsManager` controller supports working with Kubernetes-native PodTemplateSpec workloads, Argo Rollouts and OpenKruise CloneSet.
+1. Three ways to inject such as normal Secret reference. A `volume` (the default; secret files land at `/etc/secrets/<secret-name>`, or wherever you set `mountPath`), `envFrom` (every key becomes an env var), or `env` (one key into one variable, via `envName` + `secretKey`).
+2. Didn't specify a `mountConfig`? You get the default volume mount with zero extra typing.
+3. Immediate rollout update the moment a secret changes, the controller rolls the workload so pods pick up the fresh values automatically and our controller currently works with Kubernetes-native workloads in addition to OpenKruise CloneSet and Argo Rollouts.
+4. Scheduled rotation is change-driven only currently. A time-based rotation is on the roadmap through a schedule or a cron syntax.
 
 **WIP**: Let the controller support every in-cluster appropriate workload automatically.
 
-For a walkthrough of all `SecretsManager` capabilities, see `usages/` for `mountConfig`, `env`, `envFrom`, `mountPath`.
+For a walkthrough of all `SecretsManager` capabilities, see `usages/` for `mountConfig`, `env`, `envFrom`, `mountPath` usages and integrations with GitOps tools.
