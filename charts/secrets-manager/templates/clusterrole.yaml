@@ -1,0 +1,33 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: secrets-manager-controller-role
+rules:
+  - apiGroups: ["secrets.management.io"]
+    resources: ["secretsmanagers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  - apiGroups: [""]
+    resources: ["secrets", "pods"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+
+  - apiGroups: ["argoproj.io"]
+    resources: ["rollouts"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+
+  - apiGroups: ["apps.kruise.io"]
+    resources: ["clonesets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+
+
+  {{- if .Values.additionalRBACRules }}
+{{ toYaml .Values.additionalRBACRules | indent 2 }}
+  {{- end }}

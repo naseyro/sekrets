@@ -1,0 +1,44 @@
+=============================================================================
+🚀 SecretsManager ({{ .Release.Name }}) has been successfully installed!
+=============================================================================
+
+Your Controller and Mutating Webhook are now running in the '{{ .Release.Namespace }}' namespace.
+
+⚠️ CRITICAL NEXT STEP: NAMESPACE OPT-IN ⚠️
+-----------------------------------------------------------------------------
+Because we are in early development stages, the SecretsManager Webhook operates on an opt-in basis. 
+It will intercept defined workloads the Webhook configuration or **ANY** workload in namespaces that have the injection label.
+
+To enable secret injection for a specific namespace (e.g., 'dev-team') for any workload, run:
+  
+  kubectl label namespace dev-team secrets-manager.io/injection=enabled
+
+HOW TO USE SECRETS-MANAGER:
+-----------------------------------------------------------------------------
+1. Create a native K8s Secret in your labeled namespace.
+2. Deploy your workload (Deployment, StatefulSet, Argo Rollout, etc.).
+3. Create a SecretsManager CRD to bind them together:
+
+apiVersion: secrets.management.io/v1
+kind: SecretsManager
+metadata:
+  name: my-secrets-binding
+  namespace: dev-team
+spec:
+  targetWorkloads:
+    - name: my-backend-app
+      kind: Deployment
+      apiVersion: apps/v1
+      secrets:
+        - name: my-database-credentials
+          # If mountConfig is omitted, it defaults to a Volume mount!
+
+
+See the README.md documentation for all use cases.
+
+CHECKING STATUS:
+-----------------------------------------------------------------------------
+To view the logs of your running controller:
+  kubectl logs -n {{ .Release.Namespace }} -l app=secrets-manager-controller -f
+
+=============================================================================

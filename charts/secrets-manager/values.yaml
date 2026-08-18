@@ -1,0 +1,19 @@
+# values.yaml
+
+replicaCount: 1
+
+image:
+  repository: naseyro/sekrets
+  pullPolicy: IfNotPresent
+  tag: "v0.1.2"
+
+additionalRBACRules: []
+# Example usage:
+# additionalRBACRules:
+#   - apiGroups: ["argoproj.io"]
+#     resources: ["rollouts"]
+#     verbs: ["get", "list", "watch", "update", "patch"]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
